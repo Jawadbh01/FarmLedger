@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>FarmLedger — Setup</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body style="background:var(--bg);padding:20px">
+<div style="max-width:480px;margin:40px auto">
+  <div class="card">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:48px">🌾</div>
+      <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:700;color:var(--accent)">FarmLedger Setup</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:4px">Create Admin account — use once only!</div>
+    </div>
+    <div style="background:var(--warning-light);color:var(--warning);padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:20px;font-weight:600">⚠️ Use this page ONCE then never share this URL!</div>
+    <div class="form-group"><label class="form-label">👤 Admin Name *</label><input id="s_name" placeholder="Your full name" value="Jawad"/></div>
+    <div class="form-group"><label class="form-label">📧 Email *</label><input type="email" id="s_email" placeholder="admin@farmledger.com"/></div>
+    <div class="form-group"><label class="form-label">🔑 Password *</label><input type="password" id="s_password" placeholder="Strong password min 6 chars"/></div>
+    <div id="setupMsg" class="hidden" style="padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;font-weight:600"></div>
+    <button class="btn btn-full btn-lg" onclick="setupAdmin()">🚀 Create Admin Account</button>
+    <div style="margin-top:16px;text-align:center"><a href="index.html" style="color:var(--muted);font-size:13px">← Back to Login</a></div>
+  </div>
+</div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  const app = initializeApp({ apiKey:"AIzaSyDpTPibk-7_kqyJdfN94KrLlcKkoNnqIYE", authDomain:"farmledger-e85e3.firebaseapp.com", projectId:"farmledger-e85e3", storageBucket:"farmledger-e85e3.firebasestorage.app", messagingSenderId:"922324809308", appId:"1:922324809308:web:05c015ce12e55034e99899" });
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  window.setupAdmin = async function() {
+    const name=document.getElementById('s_name').value.trim(), email=document.getElementById('s_email').value.trim(), pass=document.getElementById('s_password').value.trim(), msg=document.getElementById('setupMsg');
+    if(!name||!email||!pass){msg.style.cssText='background:var(--danger-light);color:var(--danger);display:block';msg.textContent='⚠️ All fields required';msg.classList.remove('hidden');return;}
+    try {
+      const check=await getDoc(doc(db,'counters','admin_setup'));
+      if(check.exists()){msg.style.cssText='background:var(--danger-light);color:var(--danger);display:block';msg.textContent='❌ Admin already set up! Go to login page.';msg.classList.remove('hidden');return;}
+      const cred=await createUserWithEmailAndPassword(auth,email,pass);
+      await setDoc(doc(db,'users',cred.user.uid),{uid:cred.user.uid,userId:'ADMIN-001',name,email,role:'admin',status:'active',createdAt:serverTimestamp()});
+      await setDoc(doc(db,'counters','admin_setup'),{done:true,createdAt:serverTimestamp()});
+      msg.style.cssText='background:var(--accent-light);color:var(--accent);display:block';
+      msg.textContent='✅ Admin created! Go to login page now.';msg.classList.remove('hidden');
+    } catch(e){
+      const m={'auth/email-already-in-use':'Email already registered — go to login!'};
+      msg.style.cssText='background:var(--danger-light);color:var(--danger);display:block';msg.textContent='❌ '+(m[e.code]||e.message);msg.classList.remove('hidden');
+    }
+  };
+</script>
+</body>
+</html>
