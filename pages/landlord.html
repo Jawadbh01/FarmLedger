@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>FarmLedger — Landlord</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<header class="topbar">
+  <a href="#" class="logo">
+    <div class="logo-icon">🌾</div>
+    <div><div class="logo-text">FarmLedger</div><div class="logo-sub">Landlord Panel</div></div>
+  </a>
+  <button class="menu-toggle" onclick="document.getElementById('mainNav').classList.toggle('open')">☰</button>
+  <nav class="nav" id="mainNav">
+    <a href="#" class="active nav-link" data-tab="overview"><span class="nav-icon">📊</span> Overview</a>
+    <a href="#" class="nav-link" data-tab="farms"><span class="nav-icon">🌱</span> Farms</a>
+    <a href="#" class="nav-link" data-tab="managers"><span class="nav-icon">👨‍💼</span> Managers</a>
+    <a href="#" class="nav-link" data-tab="activities"><span class="nav-icon">📋</span> Activities</a>
+    <a href="#" class="nav-link" data-tab="harvests"><span class="nav-icon">🌾</span> Harvests</a>
+  </nav>
+  <div class="topbar-right">
+    <div class="topbar-user">
+      <div class="user-avatar" id="userAvatar">L</div>
+      <div class="user-info">
+        <div class="user-name" id="userName">Landlord</div>
+        <div class="user-role"><span class="role-badge role-landlord">Landlord</span></div>
+      </div>
+    </div>
+    <button class="btn-ghost" id="logoutBtn">🚪 Logout</button>
+  </div>
+</header>
+
+<main class="container">
+  <div id="loadingState" class="loading"><div class="spinner"></div></div>
+  <div id="appContent" class="hidden">
+
+    <!-- Overview Tab -->
+    <div id="tab-overview">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><span>📊</span> Farm Overview</div>
+          <div class="page-subtitle" id="welcomeMsg">Welcome back!</div>
+        </div>
+        <div class="row">
+          <button class="btn btn-white" onclick="printOverallReport()">🖨️ Print Report</button>
+          <button class="btn" onclick="switchTab('farms')">➕ Add Farm</button>
+        </div>
+      </div>
+      <div class="stats-grid" id="overviewStats"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="chartsRow">
+        <div class="card">
+          <div class="card-title"><span>🌱</span> Farms Summary</div>
+          <div id="farmsSummary"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span>📋</span> Recent Activities</div>
+          <div id="recentActivities"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Farms Tab -->
+    <div id="tab-farms" class="hidden">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><span>🌱</span> My Farms</div>
+          <div class="page-subtitle">Manage all your farms</div>
+        </div>
+        <button class="btn" onclick="openAddFarm()">➕ Add Farm</button>
+      </div>
+      <div class="farms-grid" id="farmsGrid"></div>
+    </div>
+
+    <!-- Managers Tab -->
+    <div id="tab-managers" class="hidden">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><span>👨‍💼</span> Managers</div>
+          <div class="page-subtitle">Create and manage your managers</div>
+        </div>
+        <button class="btn" onclick="openAddManager()">➕ Add Manager</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Farms</th><th>Actions</th></tr></thead>
+            <tbody id="managersBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activities Tab -->
+    <div id="tab-activities" class="hidden">
+      <div class="page-header">
+        <div class="page-title"><span>📋</span> All Activities</div>
+      </div>
+      <div class="card">
+        <div class="row mb" style="gap:10px;flex-wrap:wrap">
+          <select id="actFarmFilter" onchange="loadActivitiesTab()" style="width:auto">
+            <option value="">All Farms</option>
+          </select>
+          <select id="actTypeFilter" onchange="loadActivitiesTab()" style="width:auto">
+            <option value="">All Types</option>
+            <option>diesel</option><option>fertilizer</option>
+            <option>seeds</option><option>labor</option><option>pesticide</option><option>other</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Farm</th><th>Type</th><th>Qty</th><th>Cost</th><th>Note</th></tr></thead>
+            <tbody id="activitiesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Harvests Tab -->
+    <div id="tab-harvests" class="hidden">
+      <div class="page-header">
+        <div class="page-title"><span>🌾</span> Harvest Records</div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Farm</th><th>Crop</th><th>Quantity</th><th>Value</th></tr></thead>
+            <tbody id="harvestsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Add Farm Modal -->
+<div class="modal-overlay" id="addFarmModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">🌱 Add New Farm</div>
+      <button class="modal-close" onclick="closeModal('addFarmModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">🏡 Farm Name *</label>
+      <input id="farm_name" placeholder="e.g. Green Valley Farm"/>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">📐 Area</label>
+        <input id="farm_area" placeholder="e.g. 50 Acres"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">🌿 Crop Type</label>
+        <input id="farm_crop" placeholder="e.g. Wheat"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📍 Location</label>
+      <input id="farm_location" placeholder="e.g. Multan, Punjab"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">👨‍💼 Assign Manager</label>
+      <select id="farm_manager"><option value="">-- Select Manager --</option></select>
+    </div>
+    <div id="addFarmError" class="hidden" style="background:var(--danger-light);color:var(--danger);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+    <button class="btn btn-full" id="addFarmBtn" onclick="submitAddFarm()">✅ Add Farm</button>
+  </div>
+</div>
+
+<!-- Add Manager Modal -->
+<div class="modal-overlay" id="addManagerModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">👨‍💼 Add Manager</div>
+      <button class="modal-close" onclick="closeModal('addManagerModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">👤 Full Name *</label>
+      <input id="mgr_name" placeholder="Manager's full name"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📧 Email Address *</label>
+      <input type="email" id="mgr_email" placeholder="manager@email.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">🔑 Password *</label>
+      <input type="password" id="mgr_password" placeholder="Min 6 characters"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📞 Phone Number</label>
+      <input id="mgr_phone" placeholder="03001234567"/>
+    </div>
+    <div id="addManagerError" class="hidden" style="background:var(--danger-light);color:var(--danger);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+    <button class="btn btn-full" id="addManagerBtn" onclick="submitAddManager()">✅ Create Manager</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+  import { auth, db } from '../js/firebase.js';
+  import { signOut, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { doc, getDoc, setDoc, collection, getDocs, addDoc, query, where, orderBy, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { showToast, formatPKR } from '../js/utils.js';
+
+  let currentUser = null;
+  let allFarms = [], allManagers = [], allActivities = [], allHarvests = [];
+
+  const activityIcons = { diesel:'⛽', fertilizer:'🧪', seeds:'🌱', labor:'👷', pesticide:'💊', other:'📦' };
+  const activityColors = { diesel:'stat-icon-orange', fertilizer:'stat-icon-green', seeds:'stat-icon-green', labor:'stat-icon-blue', pesticide:'stat-icon-red', other:'stat-icon-gold' };
+
+  // ── Auth ────────────────────────────────────────────────────
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = '../index.html'; return; }
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (!snap.exists() || snap.data().role !== 'landlord') { window.location.href = '../index.html'; return; }
+    currentUser = { uid: user.uid, ...snap.data() };
+    document.getElementById('userName').textContent = currentUser.name || 'Landlord';
+    document.getElementById('userAvatar').textContent = (currentUser.name || 'L').charAt(0).toUpperCase();
+    document.getElementById('welcomeMsg').textContent = `Welcome back, ${currentUser.name}! 👋`;
+    await loadAll();
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('appContent').classList.remove('hidden');
+  });
+
+  async function loadAll() {
+    // Load farms
+    const farmsSnap = await getDocs(query(collection(db, 'farms'), where('landlordId', '==', currentUser.userId || currentUser.uid)));
+    allFarms = farmsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Load managers
+    const mgrSnap = await getDocs(query(collection(db, 'users'), where('landlordId', '==', currentUser.userId || currentUser.uid), where('role', '==', 'manager')));
+    allManagers = mgrSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+
+    // Load activities for all farms
+    allActivities = [];
+    for (const farm of allFarms) {
+      const actSnap = await getDocs(query(collection(db, 'activities'), where('farmId', '==', farm.id)));
+      actSnap.docs.forEach(d => allActivities.push({ id: d.id, farmName: farm.farmName, ...d.data() }));
+    }
+
+    // Load harvests
+    allHarvests = [];
+    for (const farm of allFarms) {
+      const hvSnap = await getDocs(query(collection(db, 'harvests'), where('farmId', '==', farm.id)));
+      hvSnap.docs.forEach(d => allHarvests.push({ id: d.id, farmName: farm.farmName, ...d.data() }));
+    }
+
+    renderOverview();
+    renderFarms();
+    renderManagers();
+    renderActivitiesTab();
+    renderHarvests();
+    populateFarmFilter();
+  }
+
+  function renderOverview() {
+    const totalExpense = allActivities.reduce((s, a) => s + Number(a.cost || 0), 0);
+    const totalHarvest = allHarvests.reduce((s, h) => s + Number(h.totalValue || 0), 0);
+    const profit = totalHarvest - totalExpense;
+    document.getElementById('overviewStats').innerHTML = `
+      <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon-wrap stat-icon-green">🌱</div><div><div class="stat-label">Total Farms</div><div class="stat-value">${allFarms.length}</div><div class="stat-sub">${allManagers.length} managers</div></div></div></div>
+      <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon-wrap stat-icon-red">💸</div><div><div class="stat-label">Total Expenses</div><div class="stat-value" style="font-size:1.1rem">${formatPKR(totalExpense)}</div><div class="stat-sub">${allActivities.length} activities</div></div></div></div>
+      <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon-wrap stat-icon-gold">🌾</div><div><div class="stat-label">Total Harvest Value</div><div class="stat-value" style="font-size:1.1rem">${formatPKR(totalHarvest)}</div><div class="stat-sub">${allHarvests.length} records</div></div></div></div>
+      <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon-wrap ${profit>=0?'stat-icon-green':'stat-icon-red'}">📈</div><div><div class="stat-label">Net Profit</div><div class="stat-value" style="font-size:1.1rem;color:${profit>=0?'var(--accent)':'var(--danger)'}">${formatPKR(profit)}</div></div></div></div>`;
+
+    // Farms summary
+    const summaryHTML = allFarms.length === 0
+      ? '<div class="empty-state"><div class="empty-icon">🌱</div><h3>No farms yet</h3><p>Add your first farm!</p></div>'
+      : allFarms.map(f => {
+          const exp = allActivities.filter(a => a.farmId === f.id).reduce((s, a) => s + Number(a.cost || 0), 0);
+          const hvst = allHarvests.filter(h => h.farmId === f.id).reduce((s, h) => s + Number(h.totalValue || 0), 0);
+          return `<div class="activity-item">
+            <div class="activity-icon stat-icon-green" style="background:var(--accent-light)">🌱</div>
+            <div class="activity-info"><div class="activity-type">${f.farmName}</div><div class="activity-meta">${f.cropType||''} • ${f.area||''}</div></div>
+            <div style="text-align:right"><div style="font-size:12px;color:var(--muted)">Expense</div><div class="activity-cost">${formatPKR(exp)}</div></div>
+          </div>`;
+        }).join('');
+    document.getElementById('farmsSummary').innerHTML = summaryHTML;
+
+    // Recent activities
+    const recent = [...allActivities].sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0)).slice(0, 5);
+    document.getElementById('recentActivities').innerHTML = recent.length === 0
+      ? '<div class="empty-state" style="padding:24px"><div class="empty-icon">📋</div><p>No activities recorded yet</p></div>'
+      : recent.map(a => `
+          <div class="activity-item">
+            <div class="activity-icon ${activityColors[a.activityType]||'stat-icon-gold'}" style="background:var(--accent-light)">${activityIcons[a.activityType]||'📦'}</div>
+            <div class="activity-info"><div class="activity-type">${a.activityType}</div><div class="activity-meta">${a.farmName} • ${a.date||''}</div></div>
+            <div class="activity-cost">${formatPKR(a.cost)}</div>
+          </div>`).join('');
+  }
+
+  function renderFarms() {
+    const grid = document.getElementById('farmsGrid');
+    if (allFarms.length === 0) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌱</div><h3>No farms yet</h3><p>Add your first farm to get started!</p></div>';
+      return;
+    }
+    grid.innerHTML = allFarms.map(f => {
+      const mgr = allManagers.find(m => m.userId === f.managerId);
+      const exp = allActivities.filter(a => a.farmId === f.id).reduce((s,a)=>s+Number(a.cost||0),0);
+      const hvst = allHarvests.filter(h => h.farmId === f.id).reduce((s,h)=>s+Number(h.totalValue||0),0);
+      return `
+        <div class="farm-card">
+          <div class="farm-card-header">
+            <div class="farm-icon">🌱</div>
+            <div style="flex:1;margin-left:12px">
+              <div class="farm-name">${f.farmName}</div>
+              <div class="farm-meta">${f.cropType||'—'} • ${f.area||'—'} • ${f.location||'—'}</div>
+            </div>
+            <span class="badge badge-green">${f.farmId||''}</span>
+          </div>
+          <div class="farm-meta" style="margin-bottom:10px">👨‍💼 Manager: <strong>${mgr ? mgr.name : 'Not assigned'}</strong></div>
+          <div class="farm-stats">
+            <div class="farm-stat"><div class="farm-stat-label">💸 Expenses</div><div class="farm-stat-value text-red">${formatPKR(exp)}</div></div>
+            <div class="farm-stat"><div class="farm-stat-label">🌾 Harvest</div><div class="farm-stat-value text-green">${formatPKR(hvst)}</div></div>
+          </div>
+          <div class="row mt" style="gap:8px">
+            <button class="btn btn-sm btn-white" onclick="printFarmReport('${f.id}')">🖨️ Print</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderManagers() {
+    const tbody = document.getElementById('managersBody');
+    if (allManagers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#999">No managers yet. Add one!</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allManagers.map(m => {
+      const farms = allFarms.filter(f => f.managerId === m.userId).length;
+      return `<tr>
+        <td><span class="badge badge-blue">${m.userId||'—'}</span></td>
+        <td><strong>${m.name}</strong></td>
+        <td>${m.email||'—'}</td>
+        <td>${m.phone||'—'}</td>
+        <td><span class="badge badge-green">${farms} farm${farms!==1?'s':''}</span></td>
+        <td><button class="btn btn-sm btn-danger" onclick="deleteManager('${m.uid}','${m.name}')">🗑</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderActivitiesTab() {
+    const farmFilter = document.getElementById('actFarmFilter')?.value || '';
+    const typeFilter = document.getElementById('actTypeFilter')?.value || '';
+    let acts = allActivities;
+    if (farmFilter) acts = acts.filter(a => a.farmId === farmFilter);
+    if (typeFilter) acts = acts.filter(a => a.activityType === typeFilter);
+    acts = [...acts].sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+    const tbody = document.getElementById('activitiesBody');
+    tbody.innerHTML = acts.length === 0
+      ? '<tr><td colspan="6" style="text-align:center;padding:24px;color:#999">No activities found</td></tr>'
+      : acts.map(a => `<tr>
+          <td>${a.date||'—'}</td>
+          <td>${a.farmName||'—'}</td>
+          <td>${activityIcons[a.activityType]||'📦'} <span class="badge badge-orange">${a.activityType}</span></td>
+          <td>${a.quantity||'—'} ${a.unit||''}</td>
+          <td class="text-red font-bold">${formatPKR(a.cost)}</td>
+          <td class="text-muted text-sm">${a.note||'—'}</td>
+        </tr>`).join('');
+  }
+
+  window.loadActivitiesTab = renderActivitiesTab;
+
+  function renderHarvests() {
+    const tbody = document.getElementById('harvestsBody');
+    const sorted = [...allHarvests].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    tbody.innerHTML = sorted.length === 0
+      ? '<tr><td colspan="5" style="text-align:center;padding:24px;color:#999">No harvests recorded yet</td></tr>'
+      : sorted.map(h => `<tr>
+          <td>${h.date||'—'}</td>
+          <td>${h.farmName||'—'}</td>
+          <td>${h.crop||'—'}</td>
+          <td>${h.quantity||'—'} ${h.unit||''}</td>
+          <td class="text-green font-bold">${formatPKR(h.totalValue)}</td>
+        </tr>`).join('');
+  }
+
+  function populateFarmFilter() {
+    const sel = document.getElementById('actFarmFilter');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">All Farms</option>' + allFarms.map(f => `<option value="${f.id}">${f.farmName}</option>`).join('');
+  }
+
+  // ── Add Farm ─────────────────────────────────────────────────
+  window.openAddFarm = function() {
+    const sel = document.getElementById('farm_manager');
+    sel.innerHTML = '<option value="">-- No Manager --</option>' + allManagers.map(m => `<option value="${m.userId}">${m.name}</option>`).join('');
+    document.getElementById('addFarmModal').classList.add('open');
+  };
+
+  window.submitAddFarm = async function() {
+    const name = document.getElementById('farm_name').value.trim();
+    const errEl = document.getElementById('addFarmError');
+    const btn = document.getElementById('addFarmBtn');
+    errEl.classList.add('hidden');
+    if (!name) { errEl.textContent = '⚠️ Farm name is required'; errEl.classList.remove('hidden'); return; }
+    btn.textContent = '⏳ Adding...'; btn.disabled = true;
+    try {
+      const counterRef = doc(db, 'counters', 'farms');
+      let farmId;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(counterRef);
+        const count = snap.exists() ? (snap.data().count||0)+1 : 1;
+        tx.set(counterRef, { count });
+        farmId = `FARM-${String(count).padStart(3,'0')}`;
+      });
+      await addDoc(collection(db, 'farms'), {
+        farmId, farmName: name,
+        area: document.getElementById('farm_area').value.trim(),
+        cropType: document.getElementById('farm_crop').value.trim(),
+        location: document.getElementById('farm_location').value.trim(),
+        managerId: document.getElementById('farm_manager').value,
+        landlordId: currentUser.userId || currentUser.uid,
+        createdAt: serverTimestamp()
+      });
+      showToast('✅ Farm added!');
+      closeModal('addFarmModal');
+      ['farm_name','farm_area','farm_crop','farm_location'].forEach(id => document.getElementById(id).value='');
+      await loadAll();
+    } catch(e) { errEl.textContent = '❌ ' + e.message; errEl.classList.remove('hidden'); }
+    btn.textContent = '✅ Add Farm'; btn.disabled = false;
+  };
+
+  // ── Add Manager ───────────────────────────────────────────────
+  window.openAddManager = function() { document.getElementById('addManagerModal').classList.add('open'); };
+
+  window.submitAddManager = async function() {
+    const name = document.getElementById('mgr_name').value.trim();
+    const email = document.getElementById('mgr_email').value.trim();
+    const password = document.getElementById('mgr_password').value.trim();
+    const phone = document.getElementById('mgr_phone').value.trim();
+    const errEl = document.getElementById('addManagerError');
+    const btn = document.getElementById('addManagerBtn');
+    errEl.classList.add('hidden');
+    if (!name||!email||!password) { errEl.textContent = '⚠️ Name, email and password required'; errEl.classList.remove('hidden'); return; }
+    if (password.length < 6) { errEl.textContent = '⚠️ Password must be 6+ characters'; errEl.classList.remove('hidden'); return; }
+    btn.textContent = '⏳ Creating...'; btn.disabled = true;
+    try {
+      const counterRef = doc(db, 'counters', 'managers');
+      let userId;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(counterRef);
+        const count = snap.exists() ? (snap.data().count||0)+1 : 1;
+        tx.set(counterRef, { count });
+        userId = `MGR-${String(count).padStart(3,'0')}`;
+      });
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        uid: cred.user.uid, userId, name, email, phone, role: 'manager',
+        landlordId: currentUser.userId || currentUser.uid,
+        createdBy: currentUser.uid, status: 'active', createdAt: serverTimestamp()
+      });
+      showToast(`✅ Manager ${name} created! ID: ${userId}`);
+      closeModal('addManagerModal');
+      ['mgr_name','mgr_email','mgr_password','mgr_phone'].forEach(id => document.getElementById(id).value='');
+      await loadAll();
+    } catch(e) {
+      const msgs = { 'auth/email-already-in-use': 'Email already registered' };
+      errEl.textContent = '❌ ' + (msgs[e.code] || e.message);
+      errEl.classList.remove('hidden');
+    }
+    btn.textContent = '✅ Create Manager'; btn.disabled = false;
+  };
+
+  // ── Delete Manager ────────────────────────────────────────────
+  window.deleteManager = async function(uid, name) {
+    if (!confirm(`Remove manager ${name}? Their farm assignments will be cleared.`)) return;
+    try {
+      const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      await deleteDoc(doc(db, 'users', uid));
+      showToast('Manager removed');
+      await loadAll();
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+  };
+
+  // ── Print Reports ─────────────────────────────────────────────
+  window.printOverallReport = function() {
+    const totalExp = allActivities.reduce((s,a)=>s+Number(a.cost||0),0);
+    const totalHvst = allHarvests.reduce((s,h)=>s+Number(h.totalValue||0),0);
+    const farmRows = allFarms.map(f => {
+      const exp = allActivities.filter(a=>a.farmId===f.id).reduce((s,a)=>s+Number(a.cost||0),0);
+      const hvst = allHarvests.filter(h=>h.farmId===f.id).reduce((s,h)=>s+Number(h.totalValue||0),0);
+      const mgr = allManagers.find(m=>m.userId===f.managerId);
+      return `<tr><td>${f.farmId||''}</td><td><strong>${f.farmName}</strong></td><td>${f.cropType||'—'}</td><td>${mgr?mgr.name:'—'}</td><td style="color:#c62828">₨${exp.toLocaleString()}</td><td style="color:#2e7d32">₨${hvst.toLocaleString()}</td><td style="color:${hvst-exp>=0?'#2e7d32':'#c62828'}"><strong>₨${(hvst-exp).toLocaleString()}</strong></td></tr>`;
+    }).join('');
+    const w = window.open('','_blank');
+    w.document.write(`<html><head><title>FarmLedger Report</title><style>body{font-family:Arial;padding:24px}h1{color:#2e7d32;text-align:center}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:9px}th{background:#e8f5e9;color:#2e7d32}.sum{background:#f1f8e9;padding:14px;border-radius:8px;margin:16px 0;font-size:15px}.sum span{margin-right:20px;font-weight:700}</style></head><body>
+      <h1>🌾 FarmLedger — Overall Report</h1><p style="text-align:center;color:#666">Landlord: <strong>${currentUser.name}</strong> | Generated: ${new Date().toLocaleString()}</p>
+      <div class="sum"><span>🌱 Farms: ${allFarms.length}</span><span>💸 Total Expenses: ₨${totalExp.toLocaleString()}</span><span>🌾 Total Harvest: ₨${totalHvst.toLocaleString()}</span><span style="color:${totalHvst-totalExp>=0?'#2e7d32':'#c62828'}">📈 Net Profit: ₨${(totalHvst-totalExp).toLocaleString()}</span></div>
+      <table><thead><tr><th>ID</th><th>Farm</th><th>Crop</th><th>Manager</th><th>Expenses</th><th>Harvest</th><th>Profit</th></tr></thead><tbody>${farmRows}</tbody></table>
+      <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+  };
+
+  window.printFarmReport = function(farmId) {
+    const farm = allFarms.find(f=>f.id===farmId);
+    if (!farm) return;
+    const acts = allActivities.filter(a=>a.farmId===farmId);
+    const hvsts = allHarvests.filter(h=>h.farmId===farmId);
+    const totalExp = acts.reduce((s,a)=>s+Number(a.cost||0),0);
+    const totalHvst = hvsts.reduce((s,h)=>s+Number(h.totalValue||0),0);
+    const actRows = acts.map(a=>`<tr><td>${a.date||'—'}</td><td>${a.activityType}</td><td>${a.quantity||'—'} ${a.unit||''}</td><td>₨${Number(a.cost||0).toLocaleString()}</td><td>${a.note||'—'}</td></tr>`).join('');
+    const hvstRows = hvsts.map(h=>`<tr><td>${h.date||'—'}</td><td>${h.crop||'—'}</td><td>${h.quantity||'—'} ${h.unit||''}</td><td>₨${Number(h.totalValue||0).toLocaleString()}</td></tr>`).join('');
+    const w = window.open('','_blank');
+    w.document.write(`<html><head><title>${farm.farmName} Report</title><style>body{font-family:Arial;padding:24px}h1,h2{color:#2e7d32}table{width:100%;border-collapse:collapse;margin-bottom:16px}th,td{border:1px solid #ccc;padding:9px}th{background:#e8f5e9}.sum{background:#f1f8e9;padding:14px;border-radius:8px;margin:14px 0}</style></head><body>
+      <h1>🌱 ${farm.farmName} — Farm Report</h1><p>Crop: <b>${farm.cropType||'—'}</b> | Area: <b>${farm.area||'—'}</b> | Location: <b>${farm.location||'—'}</b></p><p>Generated: ${new Date().toLocaleString()}</p>
+      <div class="sum">Expenses: <b>₨${totalExp.toLocaleString()}</b> &nbsp;|&nbsp; Harvest Value: <b>₨${totalHvst.toLocaleString()}</b> &nbsp;|&nbsp; Net: <b style="color:${totalHvst-totalExp>=0?'#2e7d32':'#c62828'}">₨${(totalHvst-totalExp).toLocaleString()}</b></div>
+      <h2>📋 Activities</h2><table><thead><tr><th>Date</th><th>Type</th><th>Quantity</th><th>Cost</th><th>Note</th></tr></thead><tbody>${actRows||'<tr><td colspan="5" style="text-align:center">No activities</td></tr>'}</tbody></table>
+      <h2>🌾 Harvests</h2><table><thead><tr><th>Date</th><th>Crop</th><th>Quantity</th><th>Value</th></tr></thead><tbody>${hvstRows||'<tr><td colspan="4" style="text-align:center">No harvests</td></tr>'}</tbody></table>
+      <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+  };
+
+  // ── Tab switching ─────────────────────────────────────────────
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      switchTab(link.dataset.tab);
+      document.getElementById('mainNav').classList.remove('open');
+    });
+  });
+
+  window.switchTab = function(tab) {
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.tab === tab));
+    document.querySelectorAll('[id^="tab-"]').forEach(t => t.classList.add('hidden'));
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+  };
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    if (!confirm('Logout?')) return;
+    await signOut(auth);
+    window.location.href = '../index.html';
+  });
+
+  window.closeModal = function(id) { document.getElementById(id).classList.remove('open'); };
+  document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', function(e) { if (e.target===this) this.classList.remove('open'); }));
+</script>
+</body>
+</html>

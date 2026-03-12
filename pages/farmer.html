@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>FarmLedger — My Farm</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<header class="topbar">
+  <a href="#" class="logo">
+    <div class="logo-icon">🌾</div>
+    <div><div class="logo-text">FarmLedger</div><div class="logo-sub">My Farm</div></div>
+  </a>
+  <div class="topbar-right">
+    <div class="topbar-user">
+      <div class="user-avatar" id="userAvatar">F</div>
+      <div class="user-info">
+        <div class="user-name" id="userName">Farmer</div>
+        <div class="user-role"><span class="role-badge role-farmer">Farmer</span></div>
+      </div>
+    </div>
+    <button class="btn-ghost" id="logoutBtn">🚪</button>
+  </div>
+</header>
+
+<main style="max-width:520px;margin:0 auto;padding:16px">
+  <div id="loadingState" class="loading"><div class="spinner"></div></div>
+  <div id="appContent" class="hidden">
+
+    <!-- Hero Card -->
+    <div class="farmer-hero" id="farmHero">
+      <div class="farmer-hero-avatar" id="heroAvatar">F</div>
+      <div class="farmer-hero-name" id="heroName">My Farm</div>
+      <div class="farmer-hero-meta" id="heroMeta">Loading...</div>
+      <div class="farmer-stat-row" id="heroStats"></div>
+    </div>
+
+    <!-- Weather -->
+    <div class="weather-card" id="weatherCard">
+      <div class="weather-search">
+        <input id="weatherCity" placeholder="Enter your city..." value="Lahore"/>
+        <button onclick="loadWeather()">🔍 Search</button>
+      </div>
+      <div id="weatherContent">
+        <div style="text-align:center;padding:12px;opacity:0.8">Loading weather...</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="showSection('expenses')">💸 Expenses</button>
+      <button class="tab" onclick="showSection('harvests')">🌾 Harvests</button>
+    </div>
+
+    <!-- Expenses Section -->
+    <div id="section-expenses">
+      <div class="card">
+        <div class="card-title"><span>💸</span> My Expenses</div>
+        <div id="expensesList"></div>
+      </div>
+    </div>
+
+    <!-- Harvests Section -->
+    <div id="section-harvests" class="hidden">
+      <div class="card">
+        <div class="card-title"><span>🌾</span> My Harvest Records</div>
+        <div id="harvestsList"></div>
+      </div>
+    </div>
+
+    <!-- Footer note -->
+    <div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">
+      🔒 Records added by your Manager · Contact them for changes
+    </div>
+
+  </div>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+  import { auth, db } from '../js/firebase.js';
+  import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { doc, getDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { showToast, formatPKR, fetchWeather } from '../js/utils.js';
+
+  let currentUser = null;
+  let myFarm = null;
+  const actIcons = { diesel:'⛽', fertilizer:'🧪', seeds:'🌱', labor:'👷', pesticide:'💊', other:'📦' };
+
+  // ── Auth ─────────────────────────────────────────────────────
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = '../index.html'; return; }
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (!snap.exists() || snap.data().role !== 'farmer') { window.location.href = '../index.html'; return; }
+    currentUser = { uid: user.uid, ...snap.data() };
+    document.getElementById('userName').textContent = currentUser.name;
+    document.getElementById('userAvatar').textContent = currentUser.name.charAt(0).toUpperCase();
+    document.getElementById('heroAvatar').textContent = currentUser.name.charAt(0).toUpperCase();
+    document.getElementById('heroName').textContent = currentUser.name;
+    await loadData();
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('appContent').classList.remove('hidden');
+    loadWeather();
+  });
+
+  async function loadData() {
+    // Get farm
+    if (currentUser.farmId) {
+      const farmSnap = await getDoc(doc(db, 'farms', currentUser.farmId));
+      myFarm = farmSnap.exists() ? { id: farmSnap.id, ...farmSnap.data() } : null;
+    }
+    document.getElementById('heroMeta').textContent = myFarm
+      ? `🌱 ${myFarm.farmName} • ${myFarm.cropType||'—'} • ${myFarm.area||'—'}`
+      : '📋 No farm assigned yet';
+
+    // Activities for my farm
+    let activities = [];
+    if (myFarm) {
+      const actSnap = await getDocs(query(collection(db,'activities'), where('farmId','==', myFarm.id)));
+      activities = actSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // Harvests for my farm
+    let harvests = [];
+    if (myFarm) {
+      const hvSnap = await getDocs(query(collection(db,'harvests'), where('farmId','==', myFarm.id)));
+      harvests = hvSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    const totalExp = activities.reduce((s,a)=>s+Number(a.cost||0),0);
+    const totalHvst = harvests.reduce((s,h)=>s+Number(h.totalValue||0),0);
+    const profit = totalHvst - totalExp;
+
+    document.getElementById('heroStats').innerHTML = `
+      <div class="farmer-stat-box"><div class="val">${formatPKR(totalExp)}</div><div class="lbl">💸 Expenses</div></div>
+      <div class="farmer-stat-box"><div class="val">${formatPKR(totalHvst)}</div><div class="lbl">🌾 Harvest</div></div>
+      <div class="farmer-stat-box" style="grid-column:1/-1;background:rgba(255,255,255,0.25)"><div class="val" style="font-size:22px">${formatPKR(profit)}</div><div class="lbl">📈 Net Profit</div></div>`;
+
+    // Render expenses
+    const sorted = [...activities].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    document.getElementById('expensesList').innerHTML = sorted.length === 0
+      ? '<div class="empty-state"><div class="empty-icon">📋</div><h3>No expenses yet</h3><p>Your manager will add records here</p></div>'
+      : sorted.map(a => `
+          <div class="activity-item">
+            <div class="activity-icon" style="background:var(--warning-light);font-size:22px">${actIcons[a.activityType]||'📦'}</div>
+            <div class="activity-info">
+              <div class="activity-type" style="text-transform:capitalize">${a.activityType}</div>
+              <div class="activity-meta">${a.date||'—'} ${a.quantity?'• '+a.quantity+' '+(a.unit||''):''} ${a.note?'• '+a.note:''}</div>
+            </div>
+            <div class="activity-cost">${formatPKR(a.cost)}</div>
+          </div>`).join('');
+
+    // Render harvests
+    const hvSorted = [...harvests].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    document.getElementById('harvestsList').innerHTML = hvSorted.length === 0
+      ? '<div class="empty-state"><div class="empty-icon">🌾</div><h3>No harvests yet</h3><p>Your manager will record harvests here</p></div>'
+      : hvSorted.map(h => `
+          <div class="activity-item">
+            <div class="activity-icon" style="background:var(--accent-light);font-size:22px">🌾</div>
+            <div class="activity-info">
+              <div class="activity-type">${h.crop||'—'}</div>
+              <div class="activity-meta">${h.date||'—'} • ${h.quantity||'—'} ${h.unit||''}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="text-green font-bold">${formatPKR(h.totalValue)}</div>
+              <div class="text-xs text-muted">${formatPKR(h.pricePerUnit)}/unit</div>
+            </div>
+          </div>`).join('');
+  }
+
+  // ── Weather ───────────────────────────────────────────────────
+  window.loadWeather = async function() {
+    const city = document.getElementById('weatherCity').value.trim() || 'Lahore';
+    document.getElementById('weatherContent').innerHTML = '<div style="text-align:center;padding:12px;opacity:0.8">⏳ Loading...</div>';
+    const w = await fetchWeather(city);
+    if (!w) {
+      document.getElementById('weatherContent').innerHTML = '<div style="text-align:center;padding:12px;opacity:0.8">❌ City not found. Try again.</div>';
+      return;
+    }
+    const icons = { Sunny:'☀️', Clear:'🌙', Cloudy:'☁️', Overcast:'☁️', Rain:'🌧️', Drizzle:'🌦️', Snow:'❄️', Fog:'🌫️', Thunder:'⛈️', Mist:'🌫️' };
+    const icon = Object.entries(icons).find(([k]) => w.desc.includes(k))?.[1] || '🌤️';
+    document.getElementById('weatherContent').innerHTML = `
+      <div class="weather-top">
+        <div class="weather-icon">${icon}</div>
+        <div>
+          <div class="weather-temp">${w.temp}°C</div>
+          <div class="weather-desc">${w.desc}</div>
+          <div class="weather-loc">📍 ${w.city}</div>
+        </div>
+      </div>
+      <div class="weather-details">
+        <div class="weather-detail"><div class="val">💧 ${w.humidity}%</div><div class="lbl">Humidity</div></div>
+        <div class="weather-detail"><div class="val">💨 ${w.wind} km/h</div><div class="lbl">Wind</div></div>
+        <div class="weather-detail"><div class="val">🌡️ ${w.feels}°C</div><div class="lbl">Feels Like</div></div>
+      </div>`;
+    localStorage.setItem('fl_city', city);
+  };
+
+  // Load saved city
+  const savedCity = localStorage.getItem('fl_city');
+  if (savedCity) document.getElementById('weatherCity').value = savedCity;
+
+  // ── Tabs ──────────────────────────────────────────────────────
+  window.showSection = function(name) {
+    document.querySelectorAll('[id^="section-"]').forEach(s=>s.classList.add('hidden'));
+    document.getElementById('section-'+name).classList.remove('hidden');
+    document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['expenses','harvests'][i]===name));
+  };
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    if (!confirm('Logout?')) return;
+    await signOut(auth); window.location.href='../index.html';
+  });
+</script>
+</body>
+</html>

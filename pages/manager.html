@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>FarmLedger — Manager</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<header class="topbar">
+  <a href="#" class="logo">
+    <div class="logo-icon">🌾</div>
+    <div><div class="logo-text">FarmLedger</div><div class="logo-sub">Manager Panel</div></div>
+  </a>
+  <button class="menu-toggle" onclick="document.getElementById('mainNav').classList.toggle('open')">☰</button>
+  <nav class="nav" id="mainNav">
+    <a href="#" class="active nav-link" data-tab="overview"><span class="nav-icon">📊</span> Overview</a>
+    <a href="#" class="nav-link" data-tab="activities"><span class="nav-icon">📋</span> Activities</a>
+    <a href="#" class="nav-link" data-tab="harvests"><span class="nav-icon">🌾</span> Harvests</a>
+    <a href="#" class="nav-link" data-tab="inventory"><span class="nav-icon">📦</span> Inventory</a>
+    <a href="#" class="nav-link" data-tab="farmers"><span class="nav-icon">👨‍🌾</span> Farmers</a>
+  </nav>
+  <div class="topbar-right">
+    <div class="topbar-user">
+      <div class="user-avatar" id="userAvatar">M</div>
+      <div class="user-info">
+        <div class="user-name" id="userName">Manager</div>
+        <div class="user-role"><span class="role-badge role-manager">Manager</span></div>
+      </div>
+    </div>
+    <button class="btn-ghost" id="logoutBtn">🚪 Logout</button>
+  </div>
+</header>
+
+<main class="container">
+  <div id="loadingState" class="loading"><div class="spinner"></div></div>
+  <div id="appContent" class="hidden">
+
+    <!-- Overview -->
+    <div id="tab-overview">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><span>📊</span> My Dashboard</div>
+          <div class="page-subtitle" id="welcomeMsg">Welcome!</div>
+        </div>
+        <div class="row">
+          <button class="btn btn-white" onclick="printAllReport()">🖨️ Print Report</button>
+          <button class="btn" onclick="switchTab('activities')">➕ Add Activity</button>
+        </div>
+      </div>
+      <div class="stats-grid" id="overviewStats"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-title"><span>🌱</span> My Farms</div>
+          <div id="myFarmsList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span>📋</span> Recent Activities</div>
+          <div id="recentActs"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activities -->
+    <div id="tab-activities" class="hidden">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><span>📋</span> Farm Activities</div>
+          <div class="page-subtitle">Record expenses and farm work</div>
+        </div>
+        <div class="row">
+          <button class="btn btn-white" onclick="printActivities()">🖨️ Print</button>
+          <button class="btn" onclick="openAddActivity()">➕ Add Activity</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row mb" style="gap:10px;flex-wrap:wrap">
+          <select id="actFarmFilter" onchange="renderActivities()" style="width:auto">
+            <option value="">All Farms</option>
+          </select>
+          <select id="actTypeFilter" onchange="renderActivities()" style="width:auto">
+            <option value="">All Types</option>
+            <option>diesel</option><option>fertilizer</option><option>seeds</option>
+            <option>labor</option><option>pesticide</option><option>other</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Farm</th><th>Type</th><th>Qty / Unit</th><th>Cost</th><th>Note</th><th>Action</th></tr></thead>
+            <tbody id="activitiesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Harvests -->
+    <div id="tab-harvests" class="hidden">
+      <div class="page-header">
+        <div class="page-title"><span>🌾</span> Harvest Records</div>
+        <div class="row">
+          <button class="btn btn-white" onclick="printHarvests()">🖨️ Print</button>
+          <button class="btn" onclick="openAddHarvest()">➕ Record Harvest</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Farm</th><th>Crop</th><th>Quantity</th><th>Price/Unit</th><th>Total Value</th><th>Action</th></tr></thead>
+            <tbody id="harvestsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory -->
+    <div id="tab-inventory" class="hidden">
+      <div class="page-header">
+        <div class="page-title"><span>📦</span> Inventory</div>
+        <button class="btn" onclick="openAddInventory()">➕ Add Item</button>
+      </div>
+      <div class="tabs" id="invTabs">
+        <button class="tab active" onclick="switchInvTab('fuel')">⛽ Fuel</button>
+        <button class="tab" onclick="switchInvTab('seeds')">🌱 Seeds</button>
+        <button class="tab" onclick="switchInvTab('warehouse')">🏚️ Warehouse</button>
+        <button class="tab" onclick="switchInvTab('tractors')">🚜 Tractors</button>
+      </div>
+      <div class="farms-grid" id="inventoryGrid"></div>
+    </div>
+
+    <!-- Farmers -->
+    <div id="tab-farmers" class="hidden">
+      <div class="page-header">
+        <div class="page-title"><span>👨‍🌾</span> My Farmers</div>
+        <button class="btn" onclick="openAddFarmer()">➕ Add Farmer</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Farm</th><th>Actions</th></tr></thead>
+            <tbody id="farmersBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Add Activity Modal -->
+<div class="modal-overlay" id="addActivityModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">📋 Add Farm Activity</div>
+      <button class="modal-close" onclick="closeModal('addActivityModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">🌱 Farm *</label>
+      <select id="act_farm"><option value="">-- Select Farm --</option></select>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">📂 Activity Type *</label>
+        <select id="act_type">
+          <option value="">-- Select --</option>
+          <option value="diesel">⛽ Diesel</option>
+          <option value="fertilizer">🧪 Fertilizer</option>
+          <option value="seeds">🌱 Seeds</option>
+          <option value="labor">👷 Labor</option>
+          <option value="pesticide">💊 Pesticide</option>
+          <option value="other">📦 Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">📅 Date *</label>
+        <input type="date" id="act_date"/>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">🔢 Quantity</label>
+        <input type="number" id="act_qty" placeholder="e.g. 20"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">📏 Unit</label>
+        <select id="act_unit">
+          <option>Liters</option><option>KG</option><option>Bags</option>
+          <option>Hours</option><option>Days</option><option>Units</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">💰 Cost (PKR) *</label>
+      <input type="number" id="act_cost" placeholder="e.g. 8000"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📝 Note</label>
+      <input id="act_note" placeholder="Optional note"/>
+    </div>
+    <div id="actError" class="hidden" style="background:var(--danger-light);color:var(--danger);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+    <button class="btn btn-full" id="addActBtn" onclick="submitAddActivity()">✅ Save Activity</button>
+  </div>
+</div>
+
+<!-- Add Harvest Modal -->
+<div class="modal-overlay" id="addHarvestModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">🌾 Record Harvest</div>
+      <button class="modal-close" onclick="closeModal('addHarvestModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">🌱 Farm *</label>
+      <select id="hvst_farm"><option value="">-- Select Farm --</option></select>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">🌿 Crop *</label>
+        <input id="hvst_crop" placeholder="e.g. Wheat"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">📅 Date *</label>
+        <input type="date" id="hvst_date"/>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">🔢 Quantity *</label>
+        <input type="number" id="hvst_qty" placeholder="e.g. 500"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">📏 Unit</label>
+        <select id="hvst_unit">
+          <option>Bags</option><option>KG</option><option>Tons</option><option>Maunds</option>
+        </select>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">💵 Price Per Unit (PKR)</label>
+        <input type="number" id="hvst_price" placeholder="e.g. 3000" oninput="calcTotal()"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">💰 Total Value (PKR)</label>
+        <input type="number" id="hvst_total" placeholder="Auto calculated"/>
+      </div>
+    </div>
+    <div id="hvstError" class="hidden" style="background:var(--danger-light);color:var(--danger);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+    <button class="btn btn-full" id="addHvstBtn" onclick="submitAddHarvest()">✅ Record Harvest</button>
+  </div>
+</div>
+
+<!-- Add Inventory Modal -->
+<div class="modal-overlay" id="addInventoryModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">📦 Add Inventory Item</div>
+      <button class="modal-close" onclick="closeModal('addInventoryModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📂 Category</label>
+      <select id="inv_category">
+        <option value="fuel">⛽ Fuel</option>
+        <option value="seeds">🌱 Seeds & Fertilizer</option>
+        <option value="warehouse">🏚️ Warehouse</option>
+        <option value="tractors">🚜 Tractors & Machinery</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📝 Item Name *</label>
+      <input id="inv_name" placeholder="e.g. Diesel, Wheat Seeds"/>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">🔢 Quantity</label>
+        <input type="number" id="inv_qty" placeholder="0"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">📏 Unit</label>
+        <input id="inv_unit" placeholder="e.g. Liters, KG, Bags"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📝 Note</label>
+      <input id="inv_note" placeholder="Optional note"/>
+    </div>
+    <button class="btn btn-full" id="addInvBtn" onclick="submitAddInventory()">✅ Add Item</button>
+  </div>
+</div>
+
+<!-- Add Farmer Modal -->
+<div class="modal-overlay" id="addFarmerModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">👨‍🌾 Add Farmer</div>
+      <button class="modal-close" onclick="closeModal('addFarmerModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">👤 Full Name *</label>
+      <input id="frm_name" placeholder="Farmer's full name"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📞 Phone Number *</label>
+      <input id="frm_phone" placeholder="03001234567"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📧 Email (optional)</label>
+      <input type="email" id="frm_email" placeholder="farmer@email.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">🔑 Password *</label>
+      <input type="password" id="frm_password" placeholder="Min 6 characters"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">🌱 Assign Farm</label>
+      <select id="frm_farm"><option value="">-- Select Farm --</option></select>
+    </div>
+    <div id="addFarmerError" class="hidden" style="background:var(--danger-light);color:var(--danger);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+    <button class="btn btn-full" id="addFarmerBtn" onclick="submitAddFarmer()">✅ Add Farmer</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+  import { auth, db } from '../js/firebase.js';
+  import { signOut, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, orderBy, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { showToast, formatPKR } from '../js/utils.js';
+
+  let currentUser = null;
+  let myFarms = [], myActivities = [], myHarvests = [], myFarmers = [], myInventory = [];
+  let currentInvTab = 'fuel';
+  const today = new Date().toISOString().slice(0,10);
+  const actIcons = { diesel:'⛽', fertilizer:'🧪', seeds:'🌱', labor:'👷', pesticide:'💊', other:'📦' };
+
+  // ── Auth ─────────────────────────────────────────────────────
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = '../index.html'; return; }
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (!snap.exists() || snap.data().role !== 'manager') { window.location.href = '../index.html'; return; }
+    currentUser = { uid: user.uid, ...snap.data() };
+    document.getElementById('userName').textContent = currentUser.name;
+    document.getElementById('userAvatar').textContent = currentUser.name.charAt(0).toUpperCase();
+    document.getElementById('welcomeMsg').textContent = `Welcome, ${currentUser.name}! 👋`;
+    await loadAll();
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('appContent').classList.remove('hidden');
+  });
+
+  async function loadAll() {
+    // Farms
+    const farmsSnap = await getDocs(query(collection(db, 'farms'), where('managerId', '==', currentUser.userId)));
+    myFarms = farmsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Activities
+    myActivities = [];
+    for (const f of myFarms) {
+      const s = await getDocs(query(collection(db, 'activities'), where('farmId', '==', f.id)));
+      s.docs.forEach(d => myActivities.push({ id: d.id, farmName: f.farmName, ...d.data() }));
+    }
+
+    // Harvests
+    myHarvests = [];
+    for (const f of myFarms) {
+      const s = await getDocs(query(collection(db, 'harvests'), where('farmId', '==', f.id)));
+      s.docs.forEach(d => myHarvests.push({ id: d.id, farmName: f.farmName, ...d.data() }));
+    }
+
+    // Farmers
+    const frmSnap = await getDocs(query(collection(db, 'users'), where('managerId', '==', currentUser.userId), where('role', '==', 'farmer')));
+    myFarmers = frmSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+
+    // Inventory
+    const invSnap = await getDocs(query(collection(db, 'inventory'), where('managerId', '==', currentUser.userId)));
+    myInventory = invSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    renderOverview(); renderActivities(); renderHarvests(); renderInventory(); renderFarmers();
+    populateFilters();
+  }
+
+  function renderOverview() {
+    const totalExp = myActivities.reduce((s,a)=>s+Number(a.cost||0),0);
+    const totalHvst = myHarvests.reduce((s,h)=>s+Number(h.totalValue||0),0);
+    document.getElementById('overviewStats').innerHTML = `
+      <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon-wrap stat-icon-green">🌱</div><div><div class="stat-label">My Farms</div><div class="stat-value">${myFarms.length}</div></div></div></div>
+      <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon-wrap stat-icon-red">💸</div><div><div class="stat-label">Total Expenses</div><div class="stat-value" style="font-size:1.1rem">${formatPKR(totalExp)}</div></div></div></div>
+      <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon-wrap stat-icon-gold">🌾</div><div><div class="stat-label">Harvest Value</div><div class="stat-value" style="font-size:1.1rem">${formatPKR(totalHvst)}</div></div></div></div>
+      <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon-wrap stat-icon-blue">👨‍🌾</div><div><div class="stat-label">Farmers</div><div class="stat-value">${myFarmers.length}</div></div></div></div>`;
+
+    document.getElementById('myFarmsList').innerHTML = myFarms.length === 0
+      ? '<div class="empty-state" style="padding:24px"><div class="empty-icon">🌱</div><p>No farms assigned yet</p></div>'
+      : myFarms.map(f => {
+          const exp = myActivities.filter(a=>a.farmId===f.id).reduce((s,a)=>s+Number(a.cost||0),0);
+          return `<div class="activity-item">
+            <div class="activity-icon" style="background:var(--accent-light)">🌱</div>
+            <div class="activity-info"><div class="activity-type">${f.farmName}</div><div class="activity-meta">${f.cropType||''} • ${f.area||''}</div></div>
+            <div class="activity-cost">${formatPKR(exp)}</div>
+          </div>`;
+        }).join('');
+
+    const recent = [...myActivities].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)).slice(0,5);
+    document.getElementById('recentActs').innerHTML = recent.length === 0
+      ? '<div class="empty-state" style="padding:24px"><div class="empty-icon">📋</div><p>No activities yet</p></div>'
+      : recent.map(a => `<div class="activity-item">
+          <div class="activity-icon" style="background:var(--warning-light)">${actIcons[a.activityType]||'📦'}</div>
+          <div class="activity-info"><div class="activity-type">${a.activityType}</div><div class="activity-meta">${a.farmName} • ${a.date||''}</div></div>
+          <div class="activity-cost">${formatPKR(a.cost)}</div>
+        </div>`).join('');
+  }
+
+  function renderActivities() {
+    const farmF = document.getElementById('actFarmFilter')?.value || '';
+    const typeF = document.getElementById('actTypeFilter')?.value || '';
+    let acts = myActivities;
+    if (farmF) acts = acts.filter(a => a.farmId === farmF);
+    if (typeF) acts = acts.filter(a => a.activityType === typeF);
+    acts = [...acts].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    document.getElementById('activitiesBody').innerHTML = acts.length === 0
+      ? '<tr><td colspan="7" style="text-align:center;padding:24px;color:#999">No activities yet. Add one!</td></tr>'
+      : acts.map(a => `<tr>
+          <td>${a.date||'—'}</td>
+          <td>${a.farmName||'—'}</td>
+          <td>${actIcons[a.activityType]||'📦'} <span class="badge badge-orange">${a.activityType}</span></td>
+          <td>${a.quantity||'—'} ${a.unit||''}</td>
+          <td class="text-red font-bold">${formatPKR(a.cost)}</td>
+          <td class="text-muted text-sm">${a.note||'—'}</td>
+          <td><button class="btn btn-sm btn-danger" onclick="deleteActivity('${a.id}')">🗑</button></td>
+        </tr>`).join('');
+  }
+  window.renderActivities = renderActivities;
+
+  function renderHarvests() {
+    const sorted = [...myHarvests].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    document.getElementById('harvestsBody').innerHTML = sorted.length === 0
+      ? '<tr><td colspan="7" style="text-align:center;padding:24px;color:#999">No harvests recorded</td></tr>'
+      : sorted.map(h => `<tr>
+          <td>${h.date||'—'}</td>
+          <td>${h.farmName||'—'}</td>
+          <td>${h.crop||'—'}</td>
+          <td>${h.quantity||'—'} ${h.unit||''}</td>
+          <td>${formatPKR(h.pricePerUnit)}</td>
+          <td class="text-green font-bold">${formatPKR(h.totalValue)}</td>
+          <td><button class="btn btn-sm btn-danger" onclick="deleteHarvest('${h.id}')">🗑</button></td>
+        </tr>`).join('');
+  }
+
+  function renderInventory() {
+    const cats = { fuel: { icon:'⛽', label:'Fuel' }, seeds: { icon:'🌱', label:'Seeds & Fertilizer' }, warehouse: { icon:'🏚️', label:'Warehouse' }, tractors: { icon:'🚜', label:'Tractors' } };
+    const items = myInventory.filter(i => i.category === currentInvTab);
+    const info = cats[currentInvTab];
+    document.getElementById('inventoryGrid').innerHTML = items.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">${info.icon}</div><h3>No ${info.label} items</h3><p>Add your first item!</p></div>`
+      : items.map(i => `
+          <div class="farm-card">
+            <div class="farm-card-header">
+              <div class="farm-icon">${info.icon}</div>
+              <div style="flex:1;margin-left:12px">
+                <div class="farm-name">${i.name}</div>
+                <div class="farm-meta">${i.note||''}</div>
+              </div>
+            </div>
+            <div class="farm-stats">
+              <div class="farm-stat"><div class="farm-stat-label">📦 Quantity</div><div class="farm-stat-value">${i.quantity||0} ${i.unit||''}</div></div>
+              <div class="farm-stat"><div class="farm-stat-label">📅 Updated</div><div class="farm-stat-value text-sm">${i.lastUpdated||'—'}</div></div>
+            </div>
+            <div class="row mt">
+              <button class="btn btn-sm btn-white" onclick="updateInvQty('${i.id}', '${i.name}', ${i.quantity||0}, '${i.unit||''}')">✏️ Update</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteInvItem('${i.id}')">🗑</button>
+            </div>
+          </div>`).join('');
+  }
+
+  window.switchInvTab = function(tab) {
+    currentInvTab = tab;
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['fuel','seeds','warehouse','tractors'][i] === tab));
+    renderInventory();
+  };
+
+  function renderFarmers() {
+    document.getElementById('farmersBody').innerHTML = myFarmers.length === 0
+      ? '<tr><td colspan="5" style="text-align:center;padding:24px;color:#999">No farmers yet</td></tr>'
+      : myFarmers.map(f => {
+          const farm = myFarms.find(fm => fm.id === f.farmId);
+          return `<tr>
+            <td><span class="badge badge-green">${f.userId||'—'}</span></td>
+            <td><strong>${f.name}</strong></td>
+            <td>${f.phone||'—'}</td>
+            <td>${farm ? farm.farmName : '—'}</td>
+            <td><button class="btn btn-sm btn-danger" onclick="deleteFarmer('${f.uid}','${f.name}')">🗑</button></td>
+          </tr>`;
+        }).join('');
+  }
+
+  function populateFilters() {
+    const farmOpts = '<option value="">All Farms</option>' + myFarms.map(f=>`<option value="${f.id}">${f.farmName}</option>`).join('');
+    document.getElementById('actFarmFilter').innerHTML = farmOpts;
+    const farmSelAct = document.getElementById('act_farm');
+    const farmSelHvst = document.getElementById('hvst_farm');
+    const farmSelFrm = document.getElementById('frm_farm');
+    const farmOptsFull = '<option value="">-- Select Farm --</option>' + myFarms.map(f=>`<option value="${f.id}">${f.farmName}</option>`).join('');
+    if(farmSelAct) farmSelAct.innerHTML = farmOptsFull;
+    if(farmSelHvst) farmSelHvst.innerHTML = farmOptsFull;
+    if(farmSelFrm) farmSelFrm.innerHTML = '<option value="">-- No Farm --</option>' + myFarms.map(f=>`<option value="${f.id}">${f.farmName}</option>`).join('');
+  }
+
+  // ── Add Activity ──────────────────────────────────────────────
+  window.openAddActivity = function() {
+    populateFilters();
+    document.getElementById('act_date').value = today;
+    document.getElementById('addActivityModal').classList.add('open');
+  };
+  window.submitAddActivity = async function() {
+    const farmId = document.getElementById('act_farm').value;
+    const type = document.getElementById('act_type').value;
+    const date = document.getElementById('act_date').value;
+    const cost = document.getElementById('act_cost').value;
+    const errEl = document.getElementById('actError');
+    const btn = document.getElementById('addActBtn');
+    errEl.classList.add('hidden');
+    if (!farmId||!type||!date||!cost) { errEl.textContent='⚠️ Farm, type, date and cost are required'; errEl.classList.remove('hidden'); return; }
+    btn.textContent='⏳ Saving...'; btn.disabled=true;
+    try {
+      const counterRef = doc(db,'counters','activities');
+      let activityId;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(counterRef);
+        const count = snap.exists()?(snap.data().count||0)+1:1;
+        tx.set(counterRef,{count});
+        activityId = `ACT-${String(count).padStart(3,'0')}`;
+      });
+      await addDoc(collection(db,'activities'), {
+        activityId, farmId, activityType: type, date,
+        quantity: Number(document.getElementById('act_qty').value)||0,
+        unit: document.getElementById('act_unit').value,
+        cost: Number(cost), note: document.getElementById('act_note').value.trim(),
+        createdBy: currentUser.userId, createdAt: serverTimestamp()
+      });
+      showToast('✅ Activity saved!');
+      closeModal('addActivityModal');
+      ['act_farm','act_type','act_qty','act_cost','act_note'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+      await loadAll();
+    } catch(e) { errEl.textContent='❌ '+e.message; errEl.classList.remove('hidden'); }
+    btn.textContent='✅ Save Activity'; btn.disabled=false;
+  };
+
+  // ── Add Harvest ───────────────────────────────────────────────
+  window.openAddHarvest = function() { populateFilters(); document.getElementById('hvst_date').value=today; document.getElementById('addHarvestModal').classList.add('open'); };
+  window.calcTotal = function() {
+    const qty = Number(document.getElementById('hvst_qty').value)||0;
+    const price = Number(document.getElementById('hvst_price').value)||0;
+    document.getElementById('hvst_total').value = qty*price || '';
+  };
+  window.submitAddHarvest = async function() {
+    const farmId = document.getElementById('hvst_farm').value;
+    const crop = document.getElementById('hvst_crop').value.trim();
+    const date = document.getElementById('hvst_date').value;
+    const qty = document.getElementById('hvst_qty').value;
+    const errEl = document.getElementById('hvstError');
+    const btn = document.getElementById('addHvstBtn');
+    errEl.classList.add('hidden');
+    if (!farmId||!crop||!date||!qty) { errEl.textContent='⚠️ Farm, crop, date and quantity are required'; errEl.classList.remove('hidden'); return; }
+    btn.textContent='⏳ Saving...'; btn.disabled=true;
+    try {
+      const counterRef = doc(db,'counters','harvests');
+      let harvestId;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(counterRef);
+        const count = snap.exists()?(snap.data().count||0)+1:1;
+        tx.set(counterRef,{count});
+        harvestId = `HRV-${String(count).padStart(3,'0')}`;
+      });
+      await addDoc(collection(db,'harvests'), {
+        harvestId, farmId, crop, date,
+        quantity: Number(qty),
+        unit: document.getElementById('hvst_unit').value,
+        pricePerUnit: Number(document.getElementById('hvst_price').value)||0,
+        totalValue: Number(document.getElementById('hvst_total').value)||0,
+        recordedBy: currentUser.userId, createdAt: serverTimestamp()
+      });
+      showToast('✅ Harvest recorded!');
+      closeModal('addHarvestModal');
+      ['hvst_farm','hvst_crop','hvst_qty','hvst_price','hvst_total'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+      await loadAll();
+    } catch(e) { errEl.textContent='❌ '+e.message; errEl.classList.remove('hidden'); }
+    btn.textContent='✅ Record Harvest'; btn.disabled=false;
+  };
+
+  // ── Inventory ─────────────────────────────────────────────────
+  window.openAddInventory = function() { document.getElementById('addInventoryModal').classList.add('open'); };
+  window.submitAddInventory = async function() {
+    const name = document.getElementById('inv_name').value.trim();
+    const btn = document.getElementById('addInvBtn');
+    if (!name) { showToast('Name is required','error'); return; }
+    btn.textContent='⏳ Saving...'; btn.disabled=true;
+    try {
+      await addDoc(collection(db,'inventory'), {
+        category: document.getElementById('inv_category').value,
+        name, quantity: Number(document.getElementById('inv_qty').value)||0,
+        unit: document.getElementById('inv_unit').value.trim()||'Units',
+        note: document.getElementById('inv_note').value.trim(),
+        managerId: currentUser.userId, lastUpdated: today,
+        createdAt: serverTimestamp()
+      });
+      showToast('✅ Item added!');
+      closeModal('addInventoryModal');
+      ['inv_name','inv_qty','inv_unit','inv_note'].forEach(id=>document.getElementById(id).value='');
+      await loadAll();
+    } catch(e) { showToast('Error: '+e.message,'error'); }
+    btn.textContent='✅ Add Item'; btn.disabled=false;
+  };
+  window.updateInvQty = function(id, name, qty, unit) {
+    const newQty = prompt(`Update quantity for "${name}" (current: ${qty} ${unit}):`, qty);
+    if (newQty === null || newQty === '') return;
+    import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js").then(({ updateDoc }) => {
+      updateDoc(doc(db,'inventory',id), { quantity: Number(newQty), lastUpdated: today })
+        .then(() => { showToast('✅ Updated!'); loadAll(); });
+    });
+  };
+  window.deleteInvItem = async function(id) {
+    if (!confirm('Delete this item?')) return;
+    await deleteDoc(doc(db,'inventory',id));
+    showToast('Deleted'); loadAll();
+  };
+
+  // ── Farmers ───────────────────────────────────────────────────
+  window.openAddFarmer = function() { populateFilters(); document.getElementById('addFarmerModal').classList.add('open'); };
+  window.submitAddFarmer = async function() {
+    const name = document.getElementById('frm_name').value.trim();
+    const phone = document.getElementById('frm_phone').value.trim();
+    const email = document.getElementById('frm_email').value.trim();
+    const password = document.getElementById('frm_password').value.trim();
+    const farmId = document.getElementById('frm_farm').value;
+    const errEl = document.getElementById('addFarmerError');
+    const btn = document.getElementById('addFarmerBtn');
+    errEl.classList.add('hidden');
+    if (!name||!phone||!password) { errEl.textContent='⚠️ Name, phone and password required'; errEl.classList.remove('hidden'); return; }
+    if (password.length<6) { errEl.textContent='⚠️ Password must be 6+ characters'; errEl.classList.remove('hidden'); return; }
+    const loginEmail = email || phone.replace(/\D/g,'') + '@farmledger.app';
+    btn.textContent='⏳ Adding...'; btn.disabled=true;
+    try {
+      const counterRef = doc(db,'counters','farmers');
+      let userId;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(counterRef);
+        const count = snap.exists()?(snap.data().count||0)+1:1;
+        tx.set(counterRef,{count});
+        userId = `FRM-${String(count).padStart(3,'0')}`;
+      });
+      const cred = await createUserWithEmailAndPassword(auth, loginEmail, password);
+      await setDoc(doc(db,'users',cred.user.uid), {
+        uid: cred.user.uid, userId, name, phone, email: loginEmail,
+        role: 'farmer', farmId: farmId||'',
+        managerId: currentUser.userId,
+        landlordId: currentUser.landlordId||'',
+        createdBy: currentUser.uid, status: 'active', createdAt: serverTimestamp()
+      });
+      showToast(`✅ Farmer ${name} added! ID: ${userId}\nLogin: ${loginEmail}`);
+      closeModal('addFarmerModal');
+      ['frm_name','frm_phone','frm_email','frm_password'].forEach(id=>document.getElementById(id).value='');
+      await loadAll();
+    } catch(e) {
+      const msgs = { 'auth/email-already-in-use': 'This phone/email is already registered' };
+      errEl.textContent='❌ '+(msgs[e.code]||e.message);
+      errEl.classList.remove('hidden');
+    }
+    btn.textContent='✅ Add Farmer'; btn.disabled=false;
+  };
+  window.deleteFarmer = async function(uid, name) {
+    if (!confirm(`Remove farmer ${name}?`)) return;
+    await deleteDoc(doc(db,'users',uid));
+    showToast('Farmer removed'); loadAll();
+  };
+
+  // ── Delete ─────────────────────────────────────────────────────
+  window.deleteActivity = async function(id) {
+    if (!confirm('Delete this activity?')) return;
+    await deleteDoc(doc(db,'activities',id));
+    showToast('Deleted'); loadAll();
+  };
+  window.deleteHarvest = async function(id) {
+    if (!confirm('Delete this harvest record?')) return;
+    await deleteDoc(doc(db,'harvests',id));
+    showToast('Deleted'); loadAll();
+  };
+
+  // ── Print ─────────────────────────────────────────────────────
+  window.printActivities = function() {
+    const rows = myActivities.map(a=>`<tr><td>${a.date||'—'}</td><td>${a.farmName||'—'}</td><td>${a.activityType}</td><td>${a.quantity||'—'} ${a.unit||''}</td><td>₨${Number(a.cost||0).toLocaleString()}</td><td>${a.note||'—'}</td></tr>`).join('');
+    const total = myActivities.reduce((s,a)=>s+Number(a.cost||0),0);
+    const w=window.open('','_blank');
+    w.document.write(`<html><head><title>Activities Report</title><style>body{font-family:Arial;padding:24px}h1{color:#2e7d32}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:9px}th{background:#e8f5e9}.tot{font-weight:700;background:#f1f8e9;padding:12px}</style></head><body>
+    <h1>📋 Activities Report — ${currentUser.name}</h1><p>Generated: ${new Date().toLocaleString()}</p>
+    <div class="tot">Total Expenses: ₨${total.toLocaleString()}</div>
+    <table><thead><tr><th>Date</th><th>Farm</th><th>Type</th><th>Qty</th><th>Cost</th><th>Note</th></tr></thead><tbody>${rows||'<tr><td colspan="6">No activities</td></tr>'}</tbody></table>
+    <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+  };
+  window.printHarvests = function() {
+    const rows = myHarvests.map(h=>`<tr><td>${h.date||'—'}</td><td>${h.farmName||'—'}</td><td>${h.crop||'—'}</td><td>${h.quantity||'—'} ${h.unit||''}</td><td>₨${Number(h.totalValue||0).toLocaleString()}</td></tr>`).join('');
+    const total = myHarvests.reduce((s,h)=>s+Number(h.totalValue||0),0);
+    const w=window.open('','_blank');
+    w.document.write(`<html><head><title>Harvest Report</title><style>body{font-family:Arial;padding:24px}h1{color:#2e7d32}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:9px}th{background:#e8f5e9}.tot{font-weight:700;background:#f1f8e9;padding:12px}</style></head><body>
+    <h1>🌾 Harvest Report — ${currentUser.name}</h1><p>Generated: ${new Date().toLocaleString()}</p>
+    <div class="tot">Total Harvest Value: ₨${total.toLocaleString()}</div>
+    <table><thead><tr><th>Date</th><th>Farm</th><th>Crop</th><th>Quantity</th><th>Value</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No harvests</td></tr>'}</tbody></table>
+    <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+  };
+  window.printAllReport = function() {
+    const totalExp = myActivities.reduce((s,a)=>s+Number(a.cost||0),0);
+    const totalHvst = myHarvests.reduce((s,h)=>s+Number(h.totalValue||0),0);
+    const farmRows = myFarms.map(f=>{
+      const exp = myActivities.filter(a=>a.farmId===f.id).reduce((s,a)=>s+Number(a.cost||0),0);
+      const hvst = myHarvests.filter(h=>h.farmId===f.id).reduce((s,h)=>s+Number(h.totalValue||0),0);
+      return `<tr><td>${f.farmName}</td><td>${f.cropType||'—'}</td><td>₨${exp.toLocaleString()}</td><td>₨${hvst.toLocaleString()}</td><td style="color:${hvst-exp>=0?'#2e7d32':'#c62828'}">₨${(hvst-exp).toLocaleString()}</td></tr>`;
+    }).join('');
+    const w=window.open('','_blank');
+    w.document.write(`<html><head><title>Manager Report</title><style>body{font-family:Arial;padding:24px}h1,h2{color:#2e7d32}table{width:100%;border-collapse:collapse;margin-bottom:16px}th,td{border:1px solid #ccc;padding:9px}th{background:#e8f5e9}.sum{background:#f1f8e9;padding:14px;border-radius:8px;margin:14px 0;font-size:15px}.sum span{margin-right:18px;font-weight:700}</style></head><body>
+    <h1>🌾 Manager Report</h1><p>Manager: <b>${currentUser.name}</b> | ID: ${currentUser.userId} | Generated: ${new Date().toLocaleString()}</p>
+    <div class="sum"><span>🌱 Farms: ${myFarms.length}</span><span>💸 Expenses: ₨${totalExp.toLocaleString()}</span><span>🌾 Harvest: ₨${totalHvst.toLocaleString()}</span><span style="color:${totalHvst-totalExp>=0?'#2e7d32':'#c62828'}">📈 Net: ₨${(totalHvst-totalExp).toLocaleString()}</span></div>
+    <h2>Farm Summary</h2><table><thead><tr><th>Farm</th><th>Crop</th><th>Expenses</th><th>Harvest</th><th>Profit</th></tr></thead><tbody>${farmRows}</tbody></table>
+    <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+  };
+
+  // ── Tabs ──────────────────────────────────────────────────────
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', e => { e.preventDefault(); switchTab(link.dataset.tab); document.getElementById('mainNav').classList.remove('open'); });
+  });
+  window.switchTab = function(tab) {
+    document.querySelectorAll('.nav-link').forEach(l=>l.classList.toggle('active',l.dataset.tab===tab));
+    document.querySelectorAll('[id^="tab-"]').forEach(t=>t.classList.add('hidden'));
+    document.getElementById('tab-'+tab).classList.remove('hidden');
+  };
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    if (!confirm('Logout?')) return;
+    await signOut(auth); window.location.href='../index.html';
+  });
+
+  window.closeModal = function(id) { document.getElementById(id).classList.remove('open'); };
+  document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', function(e) { if(e.target===this) this.classList.remove('open'); }));
+</script>
+</body>
+</html>
