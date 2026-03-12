@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>FarmLedger — Setup Admin</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body style="background:var(--bg);padding:20px">
+<div style="max-width:560px;margin:40px auto">
+  <div class="card">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:48px">🌾</div>
+      <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:700;color:var(--accent)">FarmLedger Setup</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:4px">Create your Admin account once</div>
+    </div>
+
+    <div style="background:var(--warning-light);color:var(--warning);padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:20px;font-weight:600">
+      ⚠️ Use this page ONCE to set up admin. Delete it after setup!
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">👤 Admin Name *</label>
+      <input id="s_name" placeholder="Your full name" value="Admin"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📧 Email *</label>
+      <input type="email" id="s_email" placeholder="admin@farmledger.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">🔑 Password *</label>
+      <input type="password" id="s_password" placeholder="Strong password (min 6 chars)"/>
+    </div>
+
+    <div id="setupMsg" class="hidden" style="padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;font-weight:600"></div>
+
+    <button class="btn btn-full btn-lg" onclick="setupAdmin()">🚀 Create Admin Account</button>
+
+    <div style="margin-top:16px;text-align:center">
+      <a href="index.html" style="color:var(--muted);font-size:13px">← Back to Login</a>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './js/firebase.js';
+  import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  window.setupAdmin = async function() {
+    const name = document.getElementById('s_name').value.trim();
+    const email = document.getElementById('s_email').value.trim();
+    const password = document.getElementById('s_password').value.trim();
+    const msgEl = document.getElementById('setupMsg');
+
+    if (!name||!email||!password) {
+      msgEl.style.background='var(--danger-light)'; msgEl.style.color='var(--danger)';
+      msgEl.textContent='⚠️ All fields required'; msgEl.classList.remove('hidden'); return;
+    }
+    if (password.length < 6) {
+      msgEl.style.background='var(--danger-light)'; msgEl.style.color='var(--danger)';
+      msgEl.textContent='⚠️ Password must be 6+ characters'; msgEl.classList.remove('hidden'); return;
+    }
+
+    try {
+      // Check if admin already exists
+      const existing = await getDoc(doc(db,'counters','admin_setup'));
+      if (existing.exists()) {
+        msgEl.style.background='var(--danger-light)'; msgEl.style.color='var(--danger)';
+        msgEl.textContent='❌ Admin already set up! Delete this file.'; msgEl.classList.remove('hidden'); return;
+      }
+
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db,'users',cred.user.uid), {
+        uid: cred.user.uid, userId: 'ADMIN-001', name, email,
+        role: 'admin', status: 'active', createdAt: serverTimestamp()
+      });
+      await setDoc(doc(db,'counters','admin_setup'), { done: true, createdAt: serverTimestamp() });
+
+      msgEl.style.background='var(--accent-light)'; msgEl.style.color='var(--accent)';
+      msgEl.textContent=`✅ Admin created! Email: ${email} | Now go to index.html and login.`;
+      msgEl.classList.remove('hidden');
+    } catch(e) {
+      const msgs = { 'auth/email-already-in-use': 'Email already registered — go to login!' };
+      msgEl.style.background='var(--danger-light)'; msgEl.style.color='var(--danger)';
+      msgEl.textContent='❌ '+(msgs[e.code]||e.message); msgEl.classList.remove('hidden');
+    }
+  };
+</script>
+</body>
+</html>
